@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interactive Family Mind Map</title>
+
+<style>
+    body {
+        margin: 0;
+        background: #bdbdbd;
+        overflow: hidden;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    svg {
+        width: 100vw;
+        height: 100vh;
+        cursor: grab;
+    }
+
+    .node text {
+        fill: black;
+        font-size: 14px;
+        text-anchor: middle;
+        dominant-baseline: middle;
+        pointer-events: none;
+        font-weight: bold;
+    }
+
+    .circle {
+        fill: #ffffff;
+        stroke: #000;
+        stroke-width: 2;
+    }
+
+    .rect {
+        fill: #e3f2fd;
+        stroke: #000;
+        stroke-width: 2;
+        rx: 10;
+        ry: 10;
+    }
+
+    .diamond {
+        fill: #fff3e0;
+        stroke: #000;
+        stroke-width: 2;
+    }
+
+    .link {
+        stroke: #333;
+        stroke-width: 2;
+    }
+</style>
+</head>
+
+<body>
+
+<svg id="mindmap"></svg>
+
+<script>
+const people = [
+    { id: 1, name: "Adam", shape: "circle", x: 400, y: 150 },
+    { id: 2, name: "Eve", shape: "circle", x: 600, y: 150 },
+    { id: 3, name: "John", shape: "rect", x: 300, y: 300 },
+    { id: 4, name: "Mary", shape: "rect", x: 500, y: 300 },
+    { id: 5, name: "Paul", shape: "diamond", x: 400, y: 450 }
+];
+
+const links = [
+    { from: 1, to: 3 },
+    { from: 2, to: 3 },
+    { from: 1, to: 4 },
+    { from: 2, to: 4 },
+    { from: 3, to: 5 },
+    { from: 4, to: 5 }
+];
+
+const svg = document.getElementById("mindmap");
+const nodeElements = {};
+const linkElements = [];
+
+function getPerson(id) {
+    return people.find(p => p.id === id);
+}
+
+// draw links
+links.forEach(link => {
+    const a = getPerson(link.from);
+    const b = getPerson(link.to);
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("class", "link");
+    svg.appendChild(line);
+
+    linkElements.push({ line, from: a, to: b });
+});
+
+// draw nodes
+people.forEach(person => {
+    const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.setAttribute("class", "node");
+    group.style.cursor = "pointer";
+
+    let shape;
+
+    if (person.shape === "circle") {
+        shape = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        shape.setAttribute("r", 35);
+        shape.setAttribute("class", "circle");
+    }
+
+    if (person.shape === "rect") {
+        shape = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        shape.setAttribute("width", 100);
+        shape.setAttribute("height", 50);
+        shape.setAttribute("x", -50);
+        shape.setAttribute("y", -25);
+        shape.setAttribute("class", "rect");
+    }
+
+    if (person.shape === "diamond") {
+        shape = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        shape.setAttribute("points", "0,-35 50,0 0,35 -50,0");
+        shape.setAttribute("class", "diamond");
+    }
+
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.textContent = person.name;
+
+    group.appendChild(shape);
+    group.appendChild(text);
+    svg.appendChild(group);
+
+    nodeElements[person.id] = group;
+    updateNodePosition(person);
+
+    makeDraggable(group, person);
+});
+
+// update node position
+function updateNodePosition(person) {
+    const g = nodeElements[person.id];
+    g.setAttribute("transform", `translate(${person.x}, ${person.y})`);
+    updateLinks();
+}
+
+// update link positions
+function updateLinks() {
+    linkElements.forEach(l => {
+        l.line.setAttribute("x1", l.from.x);
+        l.line.setAttribute("y1", l.from.y);
+        l.line.setAttribute("x2", l.to.x);
+        l.line.setAttribute("y2", l.to.y);
+    });
+}
+
+// dragging logic
+function makeDraggable(element, person) {
+    let offsetX = 0;
+    let offsetY = 0;
+    let dragging = false;
+
+    element.addEventListener("mousedown", e => {
+        dragging = true;
+        offsetX = e.clientX - person.x;
+        offsetY = e.clientY - person.y;
+        svg.style.cursor = "grabbing";
+    });
+
+    window.addEventListener("mousemove", e => {
+        if (!dragging) return;
+        person.x = e.clientX - offsetX;
+        person.y = e.clientY - offsetY;
+        updateNodePosition(person);
+    });
+
+    window.addEventListener("mouseup", () => {
+        dragging = false;
+        svg.style.cursor = "grab";
+    });
+}
+
+updateLinks();
+</script>
+
+</body>
+</html>
