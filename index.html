@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Cool Family Tree</title>
+<title>Interactive Family Tree</title>
 <style>
     body {
         margin: 0;
@@ -52,7 +52,7 @@ const svg = document.querySelector("svg");
 const width = window.innerWidth;
 const height = window.innerHeight;
 
-// Family members
+// Family members - easy to edit
 const people = [
     { id: 1, name: "Adam", shape: "circle", generation: 1 },
     { id: 2, name: "Eve", shape: "circle", generation: 1 },
@@ -61,7 +61,7 @@ const people = [
     { id: 5, name: "Paul", shape: "diamond", generation: 3 }
 ];
 
-// Relationships (edges)
+// Relationships - easy to edit
 const links = [
     { from: 1, to: 3 },
     { from: 2, to: 3 },
@@ -71,7 +71,7 @@ const links = [
     { from: 4, to: 5 }
 ];
 
-// create node objects with random initial positions
+// initialize positions
 people.forEach(p => {
     p.x = Math.random() * width;
     p.y = Math.random() * height;
@@ -79,10 +79,9 @@ people.forEach(p => {
     p.vy = 0;
 });
 
-// helper to get a person by id
 function getPerson(id) { return people.find(p => p.id === id); }
 
-// create link elements
+// create links
 const linkElems = links.map(l => {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
     line.setAttribute("class","link");
@@ -117,9 +116,8 @@ const nodeElems = people.map(p => {
     return { g, p };
 });
 
-// update positions
+// update positions (force-directed)
 function update() {
-    // simple force layout
     const k = 0.1;
     people.forEach(p=>{
         links.forEach(l=>{
@@ -136,14 +134,12 @@ function update() {
         });
     });
     people.forEach(p=>{
-        // simple damping
         p.vx *= 0.85;
         p.vy *= 0.85;
         p.x += p.vx;
         p.y += p.vy;
     });
 
-    // update SVG
     nodeElems.forEach(n=>{
         n.g.setAttribute("transform",`translate(${n.p.x},${n.p.y})`);
     });
@@ -155,9 +151,11 @@ function update() {
     });
 }
 
-// draggable nodes
+// drag function for both mouse and touch
 function makeDraggable(element, person){
     let offsetX=0, offsetY=0, dragging=false;
+
+    // mouse events
     element.addEventListener("mousedown", e=>{
         dragging=true;
         offsetX=e.clientX-person.x;
@@ -172,6 +170,30 @@ function makeDraggable(element, person){
     window.addEventListener("mouseup", e=>{
         dragging=false;
         svg.style.cursor="grab";
+    });
+
+    // touch events
+    element.addEventListener("touchstart", e=>{
+        dragging=true;
+        const touch = e.touches[0];
+        offsetX=touch.clientX-person.x;
+        offsetY=touch.clientY-person.y;
+        svg.style.cursor="grabbing";
+        e.preventDefault();
+    }, {passive:false});
+
+    window.addEventListener("touchmove", e=>{
+        if(!dragging) return;
+        const touch = e.touches[0];
+        person.x=touch.clientX-offsetX;
+        person.y=touch.clientY-offsetY;
+        e.preventDefault();
+    }, {passive:false});
+
+    window.addEventListener("touchend", e=>{
+        dragging=false;
+        svg.style.cursor="grab";
+        e.preventDefault();
     });
 }
 
