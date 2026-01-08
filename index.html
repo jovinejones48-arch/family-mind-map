@@ -1,208 +1,549 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Interactive Family Tree</title>
-<style>
-    body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        background: #bdbdbd;
-        overflow: hidden;
-    }
-    svg {
-        width: 100vw;
-        height: 100vh;
-    }
-    .link {
-        stroke: #333;
-        stroke-width: 2;
-    }
-    .node text {
-        fill: black;
-        font-weight: bold;
-        pointer-events: none;
-        font-size: 14px;
-        text-anchor: middle;
-        dominant-baseline: middle;
-    }
-    .node circle {
-        fill: #fff;
-        stroke: #000;
-        stroke-width: 2;
-    }
-    .node rect {
-        fill: #e3f2fd;
-        stroke: #000;
-        stroke-width: 2;
-        rx: 10;
-        ry: 10;
-    }
-    .node polygon {
-        fill: #fff3e0;
-        stroke: #000;
-        stroke-width: 2;
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Our Family Tree</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+        
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .bg-particles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-100px) translateX(50px); }
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #connectionCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .mindmap {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            transition: transform 0.1s ease-out;
+        }
+
+        .tree-container {
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 100px;
+        }
+
+        .root-node-box {
+            position: relative;
+            background: linear-gradient(135deg, rgba(88, 86, 214, 0.95), rgba(53, 92, 125, 0.95));
+            backdrop-filter: blur(20px);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 30px 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            color: white;
+            font-size: 1.8em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 280px;
+            text-align: center;
+        }
+
+        .connection-point {
+            position: absolute;
+            right: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+        }
+
+        .generation-level {
+            display: flex;
+            flex-direction: column;
+            gap: 80px;
+            min-width: 400px;
+        }
+
+        .person-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+        }
+
+        .couple-container {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .branch-node {
+            position: relative;
+            background: linear-gradient(135deg, rgba(71, 85, 105, 0.95), rgba(51, 65, 85, 0.95));
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 20px 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+
+        .branch-node:hover {
+            transform: translateX(5px) scale(1.03);
+        }
+
+        .expand-arrow {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .expand-arrow:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.15);
+        }
+
+        .expand-arrow.expanded {
+            transform: rotate(180deg);
+        }
+
+        .next-generation {
+            display: none;
+            margin-left: 100px;
+        }
+
+        .next-generation.active {
+            display: flex;
+        }
+
+        .male { border-left: 5px solid rgba(59, 130, 246, 0.8); }
+        .female { border-left: 5px solid rgba(236, 72, 153, 0.8); }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.1);
+        }
+
+        .info-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 20px;
+            border-radius: 20px;
+            max-width: 280px;
+            z-index: 1000;
+            display: none;
+            color: white;
+        }
+
+        .info-panel.active { display: block; }
+
+        .info-panel h3 { margin-bottom: 10px; font-size: 1.3em; }
+        .info-panel p { line-height: 1.6; margin: 5px 0; }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .title {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            color: white;
+            font-size: 2em;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .couple-label {
+            font-size: 0.75em;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .title { font-size: 1.3em; padding: 10px 20px; }
+            .root-node-box { font-size: 1.3em; min-width: 200px; }
+            .branch-node { font-size: 0.95em; min-width: 160px; }
+            .generation-level { min-width: 300px; gap: 60px; }
+        }
+    </style>
 </head>
 <body>
-<svg></svg>
-<script>
-const svg = document.querySelector("svg");
-const width = window.innerWidth;
-const height = window.innerHeight;
+    <div class="bg-particles" id="particles"></div>
+    <div class="title">✨ Anderson Family Tree ✨</div>
 
-// Family members - easy to edit
-const people = [
-    { id: 1, name: "Adam", shape: "circle", generation: 1 },
-    { id: 2, name: "Eve", shape: "circle", generation: 1 },
-    { id: 3, name: "John", shape: "rect", generation: 2 },
-    { id: 4, name: "Mary", shape: "rect", generation: 2 },
-    { id: 5, name: "Paul", shape: "diamond", generation: 3 }
-];
+    <div class="controls">
+        <button class="control-btn" onclick="resetView()">🏠</button>
+        <button class="control-btn" onclick="zoomIn()">+</button>
+        <button class="control-btn" onclick="zoomOut()">−</button>
+    </div>
 
-// Relationships - easy to edit
-const links = [
-    { from: 1, to: 3 },
-    { from: 2, to: 3 },
-    { from: 1, to: 4 },
-    { from: 2, to: 4 },
-    { from: 3, to: 5 },
-    { from: 4, to: 5 }
-];
+    <div class="canvas-container">
+        <canvas id="connectionCanvas"></canvas>
+        
+        <div class="mindmap" id="mindmap">
+            <div class="tree-container">
+                <div class="root-node-box" onclick="showInfo('Anderson Family', 'Root', '3 Generations')">
+                    The Anderson Family
+                    <div class="connection-point"></div>
+                </div>
 
-// initialize positions
-people.forEach(p => {
-    p.x = Math.random() * width;
-    p.y = Math.random() * height;
-    p.vx = 0;
-    p.vy = 0;
-});
+                <div class="generation-level">
+                    <div class="person-group">
+                        <div class="couple-container">
+                            <div class="branch-node male" onclick="showInfo('Robert Anderson', 'Grandfather', 'Born 1950')">Robert Anderson</div>
+                            <div class="branch-node female" onclick="showInfo('Margaret Anderson', 'Grandmother', 'Born 1952')">Margaret Anderson</div>
+                            <div class="expand-arrow" onclick="toggleGen('gen1', this)">›</div>
+                        </div>
+                        <div class="couple-label">Married 1972</div>
+                    </div>
 
-function getPerson(id) { return people.find(p => p.id === id); }
+                    <div class="person-group">
+                        <div class="couple-container">
+                            <div class="branch-node male" onclick="showInfo('Thomas Anderson', 'Great Uncle', 'Born 1948')">Thomas Anderson</div>
+                            <div class="branch-node female" onclick="showInfo('Linda Anderson', 'Great Aunt', 'Born 1950')">Linda Anderson</div>
+                            <div class="expand-arrow" onclick="toggleGen('thomas', this)">›</div>
+                        </div>
+                        <div class="couple-label">Married 1970</div>
+                    </div>
+                </div>
 
-// create links
-const linkElems = links.map(l => {
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("class","link");
-    svg.appendChild(line);
-    return { line, from: getPerson(l.from), to: getPerson(l.to) };
-});
+                <div class="generation-level next-generation" id="gen1">
+                    <div class="person-group">
+                        <div class="couple-container">
+                            <div class="branch-node male" onclick="showInfo('Michael Anderson', 'Father', 'Born 1975')">Michael Anderson</div>
+                            <div class="branch-node female" onclick="showInfo('Sarah Johnson', 'Mother', 'Born 1977')">Sarah Johnson</div>
+                            <div class="expand-arrow" onclick="toggleGen('michael', this)">›</div>
+                        </div>
+                        <div class="couple-label">Married 2000</div>
+                    </div>
 
-// create nodes
-const nodeElems = people.map(p => {
-    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
-    g.setAttribute("class","node");
-    g.style.cursor = "pointer";
+                    <div class="person-group">
+                        <div class="couple-container">
+                            <div class="branch-node male" onclick="showInfo('David Anderson', 'Uncle', 'Born 1978')">David Anderson</div>
+                            <div class="branch-node female" onclick="showInfo('Emily Chen', 'Aunt', 'Born 1980')">Emily Chen</div>
+                            <div class="expand-arrow" onclick="toggleGen('david', this)">›</div>
+                        </div>
+                        <div class="couple-label">Married 2003</div>
+                    </div>
+                </div>
 
-    let shape;
-    if(p.shape==="circle") shape = document.createElementNS("http://www.w3.org/2000/svg","circle");
-    if(p.shape==="rect") shape = document.createElementNS("http://www.w3.org/2000/svg","rect");
-    if(p.shape==="diamond") shape = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+                <div class="generation-level next-generation" id="thomas">
+                    <div class="person-group">
+                        <div class="couple-container">
+                            <div class="branch-node male" onclick="showInfo('Christopher Anderson', 'Cousin', 'Born 1972')">Christopher Anderson</div>
+                            <div class="branch-node female" onclick="showInfo('Patricia Garcia', 'Cousin', 'Born 1974')">Patricia Garcia</div>
+                        </div>
+                        <div class="couple-label">Married 1996</div>
+                    </div>
+                </div>
 
-    if(p.shape==="circle") shape.setAttribute("r",30);
-    if(p.shape==="rect") { shape.setAttribute("width",100); shape.setAttribute("height",50); shape.setAttribute("x",-50); shape.setAttribute("y",-25); }
-    if(p.shape==="diamond") shape.setAttribute("points","0,-35 50,0 0,35 -50,0");
+                <div class="generation-level next-generation" id="michael">
+                    <div class="person-group">
+                        <div class="branch-node female" onclick="showInfo('Jessica Anderson', 'Daughter', 'Born 2005')">Jessica Anderson</div>
+                    </div>
+                    <div class="person-group">
+                        <div class="branch-node male" onclick="showInfo('James Anderson', 'Son', 'Born 2008')">James Anderson</div>
+                    </div>
+                </div>
 
-    const text = document.createElementNS("http://www.w3.org/2000/svg","text");
-    text.textContent = p.name;
+                <div class="generation-level next-generation" id="david">
+                    <div class="person-group">
+                        <div class="branch-node female" onclick="showInfo('Olivia Anderson', 'Cousin', 'Born 2006')">Olivia Anderson</div>
+                    </div>
+                    <div class="person-group">
+                        <div class="branch-node male" onclick="showInfo('Daniel Anderson', 'Cousin', 'Born 2010')">Daniel Anderson</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    g.appendChild(shape);
-    g.appendChild(text);
-    svg.appendChild(g);
+    <div class="info-panel" id="infoPanel">
+        <button class="close-btn" onclick="closeInfo()">×</button>
+        <h3 id="infoName"></h3>
+        <p id="infoDetails"></p>
+        <p id="infoBirth"></p>
+    </div>
 
-    makeDraggable(g,p);
+    <script>
+        const canvas = document.getElementById('connectionCanvas');
+        const ctx = canvas.getContext('2d');
+        const mindmap = document.getElementById('mindmap');
+        
+        let scale = 1, translateX = 0, translateY = 0;
+        let isDragging = false, startX, startY, lastTouchDistance = 0;
 
-    return { g, p };
-});
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawConnections();
+        }
 
-// update positions (force-directed)
-function update() {
-    const k = 0.1;
-    people.forEach(p=>{
-        links.forEach(l=>{
-            let source = getPerson(l.from);
-            let target = getPerson(l.to);
-            let dx = target.x - source.x;
-            let dy = target.y - source.y;
-            let dist = Math.sqrt(dx*dx+dy*dy) || 1;
-            let force = (dist-150)*k;
-            let fx = force * dx/dist;
-            let fy = force * dy/dist;
-            if(p===source){ p.vx+=fx; p.vy+=fy; }
-            if(p===target){ p.vx-=fx; p.vy-=fy; }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawConnections() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const point = document.querySelector('.connection-point');
+            if (!point) return;
+            
+            const pointRect = point.getBoundingClientRect();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 3;
+            
+            document.querySelectorAll('.tree-container > .generation-level:first-of-type .person-group').forEach(group => {
+                const node = group.querySelector('.branch-node');
+                if (!node) return;
+                const nodeRect = node.getBoundingClientRect();
+                const centerY = nodeRect.top + nodeRect.height / 2;
+                
+                ctx.beginPath();
+                ctx.moveTo(pointRect.right, pointRect.top + pointRect.height / 2);
+                const midX = (pointRect.right + nodeRect.left) / 2;
+                ctx.bezierCurveTo(midX, pointRect.top + pointRect.height / 2, midX, centerY, nodeRect.left, centerY);
+                ctx.stroke();
+            });
+
+            document.querySelectorAll('.next-generation.active').forEach(nextGen => {
+                const prevGen = nextGen.previousElementSibling;
+                if (!prevGen) return;
+
+                prevGen.querySelectorAll('.person-group').forEach(parentGroup => {
+                    const arrow = parentGroup.querySelector('.expand-arrow.expanded');
+                    if (!arrow) return;
+
+                    const parentNode = parentGroup.querySelectorAll('.branch-node');
+                    if (parentNode.length === 0) return;
+
+                    const lastParent = parentNode[parentNode.length - 1].getBoundingClientRect();
+                    const parentCenterY = lastParent.top + lastParent.height / 2;
+
+                    nextGen.querySelectorAll('.person-group .branch-node').forEach(child => {
+                        const childRect = child.getBoundingClientRect();
+                        const childCenterY = childRect.top + childRect.height / 2;
+
+                        ctx.beginPath();
+                        ctx.moveTo(lastParent.right, parentCenterY);
+                        const midX = (lastParent.right + childRect.left) / 2;
+                        ctx.bezierCurveTo(midX, parentCenterY, midX, childCenterY, childRect.left, childCenterY);
+                        ctx.stroke();
+                    });
+                });
+            });
+        }
+
+        function toggleGen(id, arrow) {
+            event.stopPropagation();
+            const gen = document.getElementById(id);
+            gen.classList.toggle('active');
+            arrow.classList.toggle('expanded');
+            setTimeout(drawConnections, 50);
+        }
+
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 30; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.width = p.style.height = `${Math.random() * 100 + 50}px`;
+                p.style.left = `${Math.random() * 100}%`;
+                p.style.top = `${Math.random() * 100}%`;
+                p.style.animationDelay = `${Math.random() * 20}s`;
+                container.appendChild(p);
+            }
+        }
+        createParticles();
+
+        document.body.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.branch-node, .root-node-box, .expand-arrow, .control-btn')) return;
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
         });
-    });
-    people.forEach(p=>{
-        p.vx *= 0.85;
-        p.vy *= 0.85;
-        p.x += p.vx;
-        p.y += p.vy;
-    });
 
-    nodeElems.forEach(n=>{
-        n.g.setAttribute("transform",`translate(${n.p.x},${n.p.y})`);
-    });
-    linkElems.forEach(l=>{
-        l.line.setAttribute("x1",l.from.x);
-        l.line.setAttribute("y1",l.from.y);
-        l.line.setAttribute("x2",l.to.x);
-        l.line.setAttribute("y2",l.to.y);
-    });
-}
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
 
-// drag function for both mouse and touch
-function makeDraggable(element, person){
-    let offsetX=0, offsetY=0, dragging=false;
+        document.addEventListener('mouseup', () => isDragging = false);
 
-    // mouse events
-    element.addEventListener("mousedown", e=>{
-        dragging=true;
-        offsetX=e.clientX-person.x;
-        offsetY=e.clientY-person.y;
-        svg.style.cursor="grabbing";
-    });
-    window.addEventListener("mousemove", e=>{
-        if(!dragging) return;
-        person.x=e.clientX-offsetX;
-        person.y=e.clientY-offsetY;
-    });
-    window.addEventListener("mouseup", e=>{
-        dragging=false;
-        svg.style.cursor="grab";
-    });
+        document.body.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            scale *= e.deltaY > 0 ? 0.9 : 1.1;
+            scale = Math.max(0.3, Math.min(3, scale));
+            updateTransform();
+        }, { passive: false });
 
-    // touch events
-    element.addEventListener("touchstart", e=>{
-        dragging=true;
-        const touch = e.touches[0];
-        offsetX=touch.clientX-person.x;
-        offsetY=touch.clientY-person.y;
-        svg.style.cursor="grabbing";
-        e.preventDefault();
-    }, {passive:false});
+        document.body.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.branch-node, .root-node-box, .expand-arrow, .control-btn')) return;
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+            } else if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - translateX;
+                startY = e.touches[0].clientY - translateY;
+            }
+        });
 
-    window.addEventListener("touchmove", e=>{
-        if(!dragging) return;
-        const touch = e.touches[0];
-        person.x=touch.clientX-offsetX;
-        person.y=touch.clientY-offsetY;
-        e.preventDefault();
-    }, {passive:false});
+        document.body.addEventListener('touchmove', (e) => {
+            if (e.target.closest('.branch-node, .root-node-box, .expand-arrow, .control-btn')) return;
+            e.preventDefault();
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (lastTouchDistance > 0) {
+                    scale *= distance / lastTouchDistance;
+                    scale = Math.max(0.3, Math.min(3, scale));
+                    updateTransform();
+                }
+                lastTouchDistance = distance;
+            } else if (e.touches.length === 1 && isDragging) {
+                translateX = e.touches[0].clientX - startX;
+                translateY = e.touches[0].clientY - startY;
+                updateTransform();
+            }
+        }, { passive: false });
 
-    window.addEventListener("touchend", e=>{
-        dragging=false;
-        svg.style.cursor="grab";
-        e.preventDefault();
-    });
-}
+        document.body.addEventListener('touchend', () => {
+            lastTouchDistance = 0;
+            isDragging = false;
+        });
 
-// animate
-function tick(){
-    update();
-    requestAnimationFrame(tick);
-}
-tick();
-</script>
+        function updateTransform() {
+            mindmap.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            setTimeout(drawConnections, 10);
+        }
+
+        function showInfo(name, details, birth) {
+            document.getElementById('infoName').textContent = name;
+            document.getElementById('infoDetails').textContent = details;
+            document.getElementById('infoBirth').textContent = birth;
+            document.getElementById('infoPanel').classList.add('active');
+        }
+
+        function closeInfo() {
+            document.getElementById('infoPanel').classList.remove('active');
+        }
+
+        function resetView() {
+            scale = 1;
+            translateX = translateY = 0;
+            updateTransform();
+        }
+
+        function zoomIn() {
+            scale = Math.min(3, scale * 1.2);
+            updateTransform();
+        }
+
+        function zoomOut() {
+            scale = Math.max(0.3, scale * 0.8);
+            updateTransform();
+        }
+
+        setInterval(drawConnections, 100);
+    </script>
 </body>
 </html>
